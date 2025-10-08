@@ -1,5 +1,5 @@
 # hypertension_app.py
-# 🩺 Hypertension Risk Prediction App
+# 🩺 Hypertension Risk Prediction App (with Treatment Combinations)
 
 import streamlit as st
 import pandas as pd
@@ -13,22 +13,22 @@ st.set_page_config(page_title="Hypertension Risk Prediction", page_icon="🫀", 
 # ---------- LOAD MODEL ----------
 @st.cache_resource
 def load_model():
-    model_path = "random_forest_model.pkl"  # Ensure this file exists in your repo root
+    model_path = "random_forest_model.pkl"  # Ensure model file is in your repo root
 
     if not os.path.exists(model_path):
-        st.error(f"❌ Model file not found at: {model_path}. Please place your trained model here.")
+        st.error(f"❌ Model file not found at: {model_path}. Please upload it to your repository.")
         st.stop()
 
     return joblib.load(model_path)
 
 
-# Load model
 model = load_model()
 
 # ---------- HEADER ----------
 st.title("🩺 Hypertension Risk Prediction System")
 st.markdown("""
-This AI-powered system predicts the **risk of hypertension** based on patient vitals and clinical information.
+This AI-powered system predicts the **risk of hypertension** based on key patient indicators.  
+It helps clinicians identify at-risk patients for early intervention.
 """)
 
 # ---------- INPUT FORM ----------
@@ -55,15 +55,12 @@ with st.form("patient_form"):
         diabetes = st.selectbox("Diabetes (1=Yes, 0=No)", [0, 1])
         both_dm_htn = st.selectbox("Both DM + HTN (1=Yes, 0=No)", [0.0, 1.0])
 
-        # ✅ Updated treatment options
+        # ✅ Updated treatment combinations
         treatment = st.selectbox(
-            "Treatment",
+            "Treatment Combination",
             [
-                "a: Diet and physical activity",
-                "b: Oral glucose lowering agents",
-                "c: Insulin and oral glucose lowering agents",
-                "d: Insulin",
-                "e: Antihypertensive"
+                'ab', 'abe', 'ae', 'ade', 'e', 'ad',
+                'aec', 'ace', 'ce', 'ebe', 'aw', 'ac', 'a'
             ]
         )
 
@@ -72,10 +69,9 @@ with st.form("patient_form"):
 # ---------- PREDICTION ----------
 if submitted:
     try:
-        # Combine BP values for compatibility
         bp_combined = f"{systolic_bp}/{diastolic_bp}"
 
-        # Prepare input data
+        # Prepare input for prediction
         input_data = pd.DataFrame({
             'AGE': [age],
             'GENDER': [1 if gender == "M" else 0],
@@ -88,7 +84,7 @@ if submitted:
             'TREATMENT': [treatment]
         })
 
-        # Align columns with model if needed
+        # Match columns to model
         if hasattr(model, "feature_names_in_"):
             model_features = model.feature_names_in_
             for col in model_features:
@@ -100,16 +96,16 @@ if submitted:
         pred = model.predict(input_data)[0]
         prob = model.predict_proba(input_data)[0][1] if hasattr(model, "predict_proba") else 0.5
 
-        # Interpret probability
+        # Interpret risk
         if prob < 0.33:
             risk_level = "🟢 Low Risk"
-            message = "Your predicted hypertension risk is **low**. Maintain a healthy lifestyle."
+            message = "Your predicted hypertension risk is **low**. Maintain healthy habits."
         elif prob < 0.66:
             risk_level = "🟠 Moderate Risk"
-            message = "Your predicted hypertension risk is **moderate**. Regular BP checks are advised."
+            message = "Your predicted hypertension risk is **moderate**. Regular BP checks advised."
         else:
             risk_level = "🔴 High Risk"
-            message = "Your predicted hypertension risk is **high**. Seek medical review promptly."
+            message = "Your predicted hypertension risk is **high**. Consult a healthcare provider."
 
         # ---------- DISPLAY RESULTS ----------
         st.markdown("## 🧠 Prediction Results")
@@ -135,7 +131,6 @@ if submitted:
         }
 
         record_df = pd.DataFrame(record)
-
         if not os.path.exists("prediction_logs.csv"):
             record_df.to_csv("prediction_logs.csv", index=False)
         else:
@@ -148,4 +143,4 @@ if submitted:
 
 # ---------- FOOTER ----------
 st.markdown("---")
-st.caption("Developed by Millicent Chesang | Powered by AI for Public Health")
+st.caption("Developed by Millicent Chesang | AI & Data Analytics for Public Health")
