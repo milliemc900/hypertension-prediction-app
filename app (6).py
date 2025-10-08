@@ -1,5 +1,5 @@
 # hypertension_app.py
-# 🩺 Hypertension Risk Prediction App (with Treatment Combinations)
+# 🩺 Hypertension Risk Prediction App (with Password Access)
 
 import streamlit as st
 import pandas as pd
@@ -9,6 +9,26 @@ import datetime
 
 # ---------- CONFIG ----------
 st.set_page_config(page_title="Hypertension Risk Prediction", page_icon="🫀", layout="wide")
+
+# ---------- PASSWORD PROTECTION ----------
+PASSWORD = "Millicent123"  # 🔐 Set your password here
+
+# Initialize session state for login
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+# Login screen
+if not st.session_state.authenticated:
+    st.title("🔒 Secure Login")
+    password_input = st.text_input("Enter Password to Access the App:", type="password")
+    if st.button("Login"):
+        if password_input == PASSWORD:
+            st.session_state.authenticated = True
+            st.success("✅ Access Granted! Welcome.")
+            st.rerun()
+        else:
+            st.error("❌ Incorrect Password. Please try again.")
+    st.stop()
 
 # ---------- LOAD MODEL ----------
 @st.cache_resource
@@ -20,7 +40,6 @@ def load_model():
         st.stop()
 
     return joblib.load(model_path)
-
 
 model = load_model()
 
@@ -55,7 +74,7 @@ with st.form("patient_form"):
         diabetes = st.selectbox("Diabetes (1=Yes, 0=No)", [0, 1])
         both_dm_htn = st.selectbox("Both DM + HTN (1=Yes, 0=No)", [0.0, 1.0])
 
-        # ✅ Updated treatment combinations
+        # ✅ Treatment combinations available
         treatment = st.selectbox(
             "Treatment Combination",
             [
@@ -97,50 +116,3 @@ if submitted:
         prob = model.predict_proba(input_data)[0][1] if hasattr(model, "predict_proba") else 0.5
 
         # Interpret risk
-        if prob < 0.33:
-            risk_level = "🟢 Low Risk"
-            message = "Your predicted hypertension risk is **low**. Maintain healthy habits."
-        elif prob < 0.66:
-            risk_level = "🟠 Moderate Risk"
-            message = "Your predicted hypertension risk is **moderate**. Regular BP checks advised."
-        else:
-            risk_level = "🔴 High Risk"
-            message = "Your predicted hypertension risk is **high**. Consult a healthcare provider."
-
-        # ---------- DISPLAY RESULTS ----------
-        st.markdown("## 🧠 Prediction Results")
-        st.success(f"**Predicted Status:** {'Hypertensive' if pred == 1 else 'Normal'}")
-        st.write(f"**Probability of Hypertension:** {prob:.2f}")
-        st.info(f"**Risk Level:** {risk_level}")
-        st.markdown(f"### 💬 Interpretation\n{message}")
-
-        # ---------- SAVE PREDICTION LOG ----------
-        record = {
-            "Timestamp": [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
-            "Age": [age],
-            "Gender": [gender],
-            "Weight": [weight],
-            "BMI": [bmi],
-            "Systolic_BP": [systolic_bp],
-            "Diastolic_BP": [diastolic_bp],
-            "Blood_Sugar": [blood_sugar],
-            "Diabetes": [diabetes],
-            "Treatment": [treatment],
-            "Probability": [prob],
-            "Risk_Level": [risk_level]
-        }
-
-        record_df = pd.DataFrame(record)
-        if not os.path.exists("prediction_logs.csv"):
-            record_df.to_csv("prediction_logs.csv", index=False)
-        else:
-            record_df.to_csv("prediction_logs.csv", mode="a", header=False, index=False)
-
-        st.success("✅ Prediction saved to log (prediction_logs.csv)")
-
-    except Exception as e:
-        st.error(f"⚠️ Error during prediction: {e}")
-
-# ---------- FOOTER ----------
-st.markdown("---")
-st.caption("Developed by Millicent Chesang | AI & Data Analytics for Public Health")
