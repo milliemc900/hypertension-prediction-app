@@ -1,5 +1,5 @@
 # hypertension_app.py
-# 🌿 Hospital-Grade Hypertension Risk Prediction App (with Password Protection)
+# 🌿 Hospital-Grade Hypertension Risk Prediction App
 
 import streamlit as st
 import pandas as pd
@@ -10,27 +10,10 @@ import datetime
 # ---------- CONFIG ----------
 st.set_page_config(page_title="Hypertension Risk Prediction", page_icon="🩺", layout="wide")
 
-# ---------- PASSWORD PROTECTION ----------
-PASSWORD = "admin123"  # 🔒 Change this before deploying
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-
-if not st.session_state.authenticated:
-    st.title("🔐 Secure Access Portal")
-    password_input = st.text_input("Enter Password to Continue", type="password")
-    if st.button("Login"):
-        if password_input == PASSWORD:
-            st.session_state.authenticated = True
-            st.success("✅ Access granted. Welcome!")
-            st.rerun()
-        else:
-            st.error("❌ Incorrect password. Please try again.")
-    st.stop()
-
 # ---------- LOAD MODEL ----------
 @st.cache_resource
 def load_model():
-    model_path = os.path.join("models", "random_forest_model.pkl")
+    model_path = os.path.join("models", "random_forest_model.pkl")  # Ensure model is inside /models folder
     if not os.path.exists(model_path):
         st.error(f"❌ Model file not found at: {model_path}. Please check your repo structure.")
         st.stop()
@@ -60,11 +43,10 @@ with st.form("patient_form"):
         systolic_bp = st.number_input("Systolic BP (mmHg)", min_value=60, max_value=250, value=120)
         diastolic_bp = st.number_input("Diastolic BP (mmHg)", min_value=40, max_value=150, value=80)
         blood_sugar = st.number_input("Blood Sugar (mmol/L)", min_value=2.0, max_value=30.0, value=5.5)
-        diabetes = st.selectbox("Has Diabetes?", ["No", "Yes"])
 
     with col3:
+        diabetes = st.selectbox("Has Diabetes?", ["No", "Yes"])
         cholesterol = st.number_input("Cholesterol (mmol/L)", min_value=2.0, max_value=15.0, value=5.0)
-        smoker = st.selectbox("Smoking Status", ["No", "Yes"])
         physical_activity = st.selectbox("Physical Activity", ["Low", "Moderate", "High"])
 
     submitted = st.form_submit_button("🔍 Predict Hypertension Risk")
@@ -115,14 +97,14 @@ if submitted:
                 "High hypertension risk. Please seek medical advice for proper evaluation."
             )
 
-        # Display results
+        # ---------- DISPLAY RESULTS ----------
         st.markdown("## 🧠 Prediction Results")
         st.success(f"**Predicted Status:** {'Hypertensive' if pred == 1 else 'Normal'}")
         st.write(f"**Probability of Hypertension:** {prob:.2f}")
         st.info(f"**Risk Level:** {risk_level}")
         st.markdown(f"### 💬 Interpretation\n{message}")
 
-        # Save log
+        # ---------- SAVE LOG ----------
         record = {
             "Timestamp": [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
             "Age": [age],
@@ -134,7 +116,6 @@ if submitted:
             "RiskLevel": [risk_level],
             "Probability": [prob],
         }
-
         record_df = pd.DataFrame(record)
         if not os.path.exists("prediction_logs.csv"):
             record_df.to_csv("prediction_logs.csv", index=False)
