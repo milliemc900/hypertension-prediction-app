@@ -40,16 +40,20 @@ st.subheader("📋 Enter Patient Details")
 with st.form("patient_form"):
     col1, col2, col3 = st.columns(3)
 
+    # --- Column 1 ---
     with col1:
         age = st.number_input("Age (years)", min_value=1.0, max_value=120.0, value=45.0)
         gender = st.selectbox("Gender", ["M", "F"])
         weight = st.number_input("Weight (kg)", min_value=20.0, max_value=250.0, value=75.0)
 
+    # --- Column 2 ---
     with col2:
         bmi = st.number_input("BMI (Body Mass Index)", min_value=10.0, max_value=60.0, value=28.0)
-        bp = st.text_input("BP (mmHg)", value="135/85")
+        systolic_bp = st.number_input("Systolic BP (mmHg)", min_value=70, max_value=250, value=135)
+        diastolic_bp = st.number_input("Diastolic BP (mmHg)", min_value=40, max_value=150, value=85)
         blood_sugar = st.number_input("Blood Sugar (mmol/L)", min_value=2.0, max_value=30.0, value=10.0)
 
+    # --- Column 3 ---
     with col3:
         diabetes = st.selectbox("Diabetes (1=Yes, 0=No)", [0, 1])
         both_dm_htn = st.selectbox("Both DM + HTN (1=Yes, 0=No)", [0.0, 1.0])
@@ -60,20 +64,23 @@ with st.form("patient_form"):
 # ---------- PREDICTION ----------
 if submitted:
     try:
+        # Combine BP as string for compatibility
+        bp_combined = f"{systolic_bp}/{diastolic_bp}"
+
         # Prepare input data for model
         input_data = pd.DataFrame({
             'AGE': [age],
             'GENDER': [1 if gender == "M" else 0],
             'WEIGHT(kg)': [weight],
             'BMI': [bmi],
-            'BP(mmHg)': [bp],
+            'BP(mmHg)': [bp_combined],
             'BLOOD SUGAR(mmol/L)': [blood_sugar],
             'DIABETES': [int(diabetes)],
             'BOTH DM+HTN': [float(both_dm_htn)],
             'TREATMENT': [1 if treatment == "On Treatment" else 0]
         })
 
-        # Align with model features
+        # Align with model features if needed
         if hasattr(model, "feature_names_in_"):
             model_features = model.feature_names_in_
             for col in model_features:
@@ -108,8 +115,10 @@ if submitted:
             "Timestamp": [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
             "Age": [age],
             "Gender": [gender],
+            "Weight": [weight],
             "BMI": [bmi],
-            "BP(mmHg)": [bp],
+            "Systolic_BP": [systolic_bp],
+            "Diastolic_BP": [diastolic_bp],
             "Blood_Sugar": [blood_sugar],
             "Probability": [prob],
             "Risk_Level": [risk_level]
