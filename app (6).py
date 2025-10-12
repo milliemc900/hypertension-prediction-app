@@ -3,7 +3,7 @@
 
 import streamlit as st
 import pandas as pd
-import joblib
+import pickle # Changed from joblib
 import os
 import datetime
 
@@ -33,20 +33,23 @@ if not st.session_state.authenticated:
 # ---------- LOAD MODEL ----------
 @st.cache_resource
 def load_model():
-    model_path = "random_forest_model.pkl"  # Ensure model file is in your repo root
+    model_path = "RandomForest_model.pkl"  # Corrected filename and extension
 
     if not os.path.exists(model_path):
         st.error(f"❌ Model file not found at: {model_path}. Please upload it to your repository.")
         st.stop()
 
-    return joblib.load(model_path)
+    with open(model_path, 'rb') as f:
+        model = pickle.load(f) # Changed to pickle.load
+
+    return model
 
 model = load_model()
 
 # ---------- HEADER ----------
 st.title("🩺 Hypertension Risk Prediction System")
 st.markdown("""
-This AI-powered system predicts the **risk of hypertension** based on key patient indicators.  
+This AI-powered system predicts the **risk of hypertension** based on key patient indicators.
 It helps clinicians identify at-risk patients for early intervention.
 """)
 
@@ -67,21 +70,13 @@ with st.form("patient_form"):
         bmi = st.number_input("BMI (Body Mass Index)", min_value=10.0, max_value=60.0, value=27.0)
         systolic_bp = st.number_input("Systolic BP (mmHg)", min_value=70, max_value=250, value=135)
         diastolic_bp = st.number_input("Diastolic BP (mmHg)", min_value=40, max_value=150, value=85)
-        blood_sugar = st.number_input("Blood Sugar (mmol/L)", min_value=2.0, max_value=30.0, value=9.5)
+
 
     # --- Column 3 ---
     with col3:
+        blood_sugar = st.number_input("Blood Sugar (mmol/L)", min_value=2.0, max_value=30.0, value=9.5)
         diabetes = st.selectbox("Diabetes (1=Yes, 0=No)", [0, 1])
-        both_dm_htn = st.selectbox("Both DM + HTN (1=Yes, 0=No)", [0.0, 1.0])
 
-        # ✅ Treatment combinations available
-        treatment = st.selectbox(
-            "Treatment Combination",
-            [
-                'ab', 'abe', 'ae', 'ade', 'e', 'ad',
-                'aec', 'ace', 'ce', 'ebe', 'aw', 'ac', 'a'
-            ]
-        )
 
     submitted = st.form_submit_button("🔍 Predict Hypertension Risk")
 
@@ -91,6 +86,7 @@ if submitted:
         bp_combined = f"{systolic_bp}/{diastolic_bp}"
 
         # Prepare input for prediction
+        # Removed 'BOTH DM+HTN' and 'TREATMENT'
         input_data = pd.DataFrame({
             'AGE': [age],
             'GENDER': [1 if gender == "M" else 0],
@@ -99,19 +95,48 @@ if submitted:
             'BP(mmHg)': [bp_combined],
             'BLOOD SUGAR(mmol/L)': [blood_sugar],
             'DIABETES': [int(diabetes)],
-            'BOTH DM+HTN': [float(both_dm_htn)],
-            'TREATMENT': [treatment]
+            # 'BOTH DM+HTN': [float(both_dm_htn)], # Removed
+            # 'TREATMENT': [treatment], # Removed
         })
 
-        # Match columns to model
+        # Match columns to model - This part needs to be more robust after removing features.
+        # It's better to recreate the processing pipeline here.
+        # However, for a quick fix, we can just ensure the necessary columns are present.
+        # A more complete solution would involve saving the preprocessing steps (like one-hot encoding categories)
+        # and applying them here.
+
+        # For now, we'll assume the model can handle missing columns or we manually add them with default values (like 0)
+        # based on the expected features from the training data.
+
+        # **Important Note:** This is a simplified approach. A production-ready app should save and reuse the exact
+        # preprocessing steps from training.
+
+        # Recreate dummy variables for GENDER and split BP
+        input_data['SYSTOLIC BP'] = pd.to_numeric(input_data['BP(mmHg)'].str.split('/', expand=True)[0], errors='coerce')
+        input_data['DIASTOLIC BP'] = pd.to_numeric(input_data['BP(mmHg)'].str.split('/', expand=True)[1], errors='coerce')
+        input_data = input_data.drop('BP(mmHg)', axis=1)
+
+        input_data = pd.get_dummies(input_data, columns=['GENDER'], drop_first=True)
+
+
+        # Ensure all expected model features are present, adding missing ones with 0
         if hasattr(model, "feature_names_in_"):
             model_features = model.feature_names_in_
             for col in model_features:
                 if col not in input_data.columns:
                     input_data[col] = 0
+            # Ensure column order matches training data
             input_data = input_data[model_features]
+        else:
+            st.warning("Model does not have 'feature_names_in_'. Column order and presence might be an issue.")
+
 
         # Make prediction
+        # Need to handle potential NaN after preprocessing/imputation if not done
+        # Assuming the loaded model can handle NaNs or preprocessing in training included imputation
+        # A more robust approach would be to save the imputer and apply it here.
+
+
         pred = model.predict(input_data)[0]
         prob = model.predict_proba(input_data)[0][1] if hasattr(model, "predict_proba") else 0.5
 
@@ -134,6 +159,7 @@ if submitted:
         st.markdown(f"### 💬 Interpretation\n{message}")
 
         # ---------- SAVE PREDICTION LOG ----------
+        # Removed 'BOTH DM+HTN' and 'TREATMENT' from logging
         record = {
             "Timestamp": [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
             "Age": [age],
@@ -144,7 +170,7 @@ if submitted:
             "Diastolic_BP": [diastolic_bp],
             "Blood_Sugar": [blood_sugar],
             "Diabetes": [diabetes],
-            "Treatment": [treatment],
+            # "Treatment": [treatment], # Removed
             "Probability": [prob],
             "Risk_Level": [risk_level]
         }
